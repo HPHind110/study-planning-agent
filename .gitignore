@@ -1,0 +1,8 @@
+/.venv/
+/runtime/
+/data/
+/vendor/
+/tmp*/
+__pycache__/
+*.py[cod]
+*.sqlite3*
