@@ -1,0 +1,23 @@
+Windows-11-10.0.26300-SP0
+Python 3.13.15 (tags/v3.13.15:4061bc4, Aug  5 2026, 13:05:39) [MSC v.1944 64 bit (AMD64)]
+test_end_to_end (test_api.HTTPWorkflow.test_end_to_end) ... ok
+test_skip_and_overdue (test_api.HTTPWorkflow.test_skip_and_overdue) ... ok
+test_validation_and_atomicity (test_api.HTTPWorkflow.test_validation_and_atomicity) ... ok
+test_atomic_import_and_reopen (test_planner.Scheduling.test_atomic_import_and_reopen) ... ok
+test_cap_break_split (test_planner.Scheduling.test_cap_break_split) ... ok
+test_constraints_and_shortfall (test_planner.Scheduling.test_constraints_and_shortfall) ... ok
+test_cycle_and_invalid_deadline (test_planner.Scheduling.test_cycle_and_invalid_deadline) ... ok
+test_desktop_sample (test_planner.Scheduling.test_desktop_sample) ... ok
+test_inherited_deadline (test_planner.Scheduling.test_inherited_deadline) ... ok
+test_intersecting_windows (test_planner.Scheduling.test_intersecting_windows) ... ok
+test_missed_on_reopen (test_planner.Scheduling.test_missed_on_reopen) ... ok
+test_new_work_and_deadline_edit (test_planner.Scheduling.test_new_work_and_deadline_edit) ... ok
+test_overdue_and_blocked (test_planner.Scheduling.test_overdue_and_blocked) ... ok
+test_partial_work (test_planner.Scheduling.test_partial_work) ... ok
+test_priority_tie (test_planner.Scheduling.test_priority_tie) ... ok
+test_skip_future (test_planner.Scheduling.test_skip_future) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 1.472s
+
+OK

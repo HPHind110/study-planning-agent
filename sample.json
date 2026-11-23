@@ -1,0 +1,43 @@
+{
+  "courses": [
+    "Phương trình đạo hàm riêng",
+    "Hệ thống phân tán"
+  ],
+  "tasks": [
+    {
+      "id": "pde",
+      "course": "Phương trình đạo hàm riêng",
+      "name": "Ôn phương trình đặc trưng",
+      "kind": "Mục tiêu",
+      "days": 3,
+      "estimate": 90,
+      "difficulty": 4,
+      "priority": 3,
+      "deps": []
+    },
+    {
+      "id": "exam",
+      "course": "Phương trình đạo hàm riêng",
+      "name": "Luyện đề giữa kỳ",
+      "kind": "Kỳ thi",
+      "days": 5,
+      "estimate": 160,
+      "difficulty": 5,
+      "priority": 5,
+      "deps": [
+        "pde"
+      ]
+    },
+    {
+      "id": "ds",
+      "course": "Hệ thống phân tán",
+      "name": "Chuẩn bị demo Registry",
+      "kind": "Bài tập",
+      "days": 3,
+      "estimate": 120,
+      "difficulty": 3,
+      "priority": 4,
+      "deps": []
+    }
+  ]
+}
