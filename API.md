@@ -13,6 +13,8 @@
 
 ## TaskInput và Task
 
+Dashboard nằm ở `GET /`. Giao diện đọc dữ liệu qua `GET /dashboard` (đồng bộ các buổi đã qua và trả tasks, courses, settings, sessions, history, warnings). Các thao tác được bổ sung gồm `POST/PATCH/DELETE /courses`, `PUT/DELETE /tasks/{key}` và `POST /progress`. Khi ghi tiến độ, gửi task (ID), actual (phút đã học), remaining (phút còn lại) và tùy chọn start nếu ghi cho buổi đang diễn ra. Các endpoint lập lịch trong bảng trên cũng được dùng trực tiếp từ giao diện.
+
 | Trường | Kiểu và ý nghĩa |
 |---|---|
 | name, course | Chuỗi bắt buộc sau khi cắt khoảng trắng, 1–250 ký tự. Tên môn mới được tạo tự động |

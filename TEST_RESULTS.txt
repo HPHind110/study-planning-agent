@@ -1,8 +1,11 @@
 Windows-11-10.0.26300-SP0
 Python 3.13.15 (tags/v3.13.15:4061bc4, Aug  5 2026, 13:05:39) [MSC v.1944 64 bit (AMD64)]
+test_browser_workflow (test_api.HTTPWorkflow.test_browser_workflow) ... ok
 test_end_to_end (test_api.HTTPWorkflow.test_end_to_end) ... ok
+test_local_web_assets (test_api.HTTPWorkflow.test_local_web_assets) ... ok
 test_skip_and_overdue (test_api.HTTPWorkflow.test_skip_and_overdue) ... ok
 test_validation_and_atomicity (test_api.HTTPWorkflow.test_validation_and_atomicity) ... ok
+test_web_crud_and_progress (test_api.HTTPWorkflow.test_web_crud_and_progress) ... ok
 test_atomic_import_and_reopen (test_planner.Scheduling.test_atomic_import_and_reopen) ... ok
 test_cap_break_split (test_planner.Scheduling.test_cap_break_split) ... ok
 test_constraints_and_shortfall (test_planner.Scheduling.test_constraints_and_shortfall) ... ok
@@ -18,6 +21,6 @@ test_priority_tie (test_planner.Scheduling.test_priority_tie) ... ok
 test_skip_future (test_planner.Scheduling.test_skip_future) ... ok
 
 ----------------------------------------------------------------------
-Ran 16 tests in 1.472s
+Ran 19 tests in 4.586s
 
 OK

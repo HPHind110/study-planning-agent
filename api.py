@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from planner import ROOT, Store, event, stamp
@@ -77,6 +79,25 @@ class Health(Model):
     status: Literal["ok"]
 
 
+class Course(Model):
+    name: Name
+
+
+class Rename(Course):
+    new_name: Name
+
+
+class TaskEdit(TaskInput):
+    left: Minutes
+
+
+class Progress(Model):
+    task: Name
+    actual: Annotated[int, Field(strict=True, ge=0, le=1440)]
+    remaining: Minutes
+    start: Deadline | None = None
+
+
 def create_app(store=None):
     api = FastAPI(title="Study Planning Agent", version="1.0.0")
 
@@ -138,6 +159,90 @@ def create_app(store=None):
         if "warnings" not in state:  # Migrate pre-API desktop snapshots on first read.
             return generate()
         return {"sessions": state["sessions"], "warnings": state["warnings"]}
+
+    @api.get("/", include_in_schema=False)
+    def homepage():
+        return FileResponse(ROOT / "web" / "index.html")
+
+    api.mount("/assets", StaticFiles(directory=ROOT / "web"), name="assets")
+
+    @api.get("/dashboard")
+    def dashboard():
+        state, _ = update()
+        return state
+
+    @api.post("/courses", status_code=201)
+    def add_course(body: Course):
+        def add(s):
+            if body.name in s["courses"]:
+                raise HTTPException(409, "Tên môn đã tồn tại.")
+            s["courses"].append(body.name)
+        update(add)
+        return body
+
+    @api.patch("/courses")
+    def rename_course(body: Rename):
+        def rename(s):
+            if body.name not in s["courses"]:
+                raise HTTPException(404, "Không tìm thấy môn.")
+            if body.new_name != body.name and body.new_name in s["courses"]:
+                raise HTTPException(409, "Tên môn đã tồn tại.")
+            s["courses"][s["courses"].index(body.name)] = body.new_name
+            for task in s["tasks"].values():
+                if task["course"] == body.name:
+                    task["course"] = body.new_name
+        update(rename)
+        return {"name": body.new_name}
+
+    @api.delete("/courses")
+    def delete_course(body: Course):
+        def remove(s):
+            if body.name not in s["courses"]:
+                raise HTTPException(404, "Không tìm thấy môn.")
+            if any(t["course"] == body.name for t in s["tasks"].values()):
+                raise HTTPException(409, "Chuyển hoặc xóa việc trong môn trước.")
+            s["courses"].remove(body.name)
+        update(remove)
+        return {"deleted": body.name}
+
+    @api.put("/tasks/{key:path}", response_model=Task)
+    def edit_task(key: str, body: TaskEdit):
+        def edit(s):
+            if key not in s["tasks"]:
+                raise HTTPException(404, "Không tìm thấy việc.")
+            if body.course not in s["courses"]:
+                s["courses"].append(body.course)
+            s["tasks"][key] = body.model_dump()
+        update(edit)
+        return dict(body.model_dump(), id=key)
+
+    @api.delete("/tasks/{key:path}")
+    def delete_task(key: str):
+        def remove(s):
+            if key not in s["tasks"]:
+                raise HTTPException(404, "Không tìm thấy việc.")
+            if any(key in t["deps"] for t in s["tasks"].values()):
+                raise HTTPException(409, "Việc này đang là tiên quyết của việc khác.")
+            del s["tasks"][key]
+        update(remove)
+        return {"deleted": key}
+
+    @api.post("/progress")
+    def record(body: Progress):
+        def log(s):
+            if body.task not in s["tasks"]:
+                raise HTTPException(404, "Không tìm thấy việc.")
+            now = datetime.now()
+            session = dict(task=body.task, start=stamp(now), end=stamp(now), minutes=0)
+            if body.start:
+                session = next((h for h in s["sessions"] if h["start"] == body.start
+                                and h["task"] == body.task), None)
+                if session is None or session["start"] > stamp(now):
+                    raise HTTPException(409, "Buổi đã thay đổi hoặc chưa bắt đầu.")
+                s["sessions"].remove(session)
+            event(s, session, now, body.actual, body.remaining, "Đã ghi")
+        state, _ = update(log)
+        return state["tasks"][body.task]
 
     return api
 

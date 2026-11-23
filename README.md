@@ -1,6 +1,6 @@
 # Sổ học
 
-Ứng dụng desktop tiếng Việt và HTTP API lập lịch tự học theo hạn, khối lượng và quỹ giờ cá nhân. Cả hai dùng chung thuật toán và cơ sở dữ liệu SQLite trong thư mục dự án.
+Dashboard web, ứng dụng desktop tiếng Việt và HTTP API lập lịch tự học theo hạn, khối lượng và quỹ giờ cá nhân. Cả ba dùng chung thuật toán và cơ sở dữ liệu SQLite trong thư mục dự án.
 
 ## Chạy từ GitHub trên Windows
 
@@ -12,7 +12,15 @@ cd study-planning-agent
 .\start-api.cmd
 ```
 
-Lần đầu, launcher tạo môi trường `.venv` ngay trong dự án và cài FastAPI cùng Uvicorn. Mở http://127.0.0.1:8102/docs để gửi thử yêu cầu. Dùng Ctrl+C để dừng. Chạy giao diện desktop riêng bằng `.\start.cmd`. Nếu muốn giữ dữ liệu từ bản ZIP, đóng ứng dụng rồi sao chép thư mục `data` của bản cũ vào bản clone mới trước lần chạy đầu.
+Từ thư mục dự án, **một lệnh `.\start-api.cmd`** chạy cả dashboard và API. Mở **http://127.0.0.1:8102/** để dùng dashboard hoặc http://127.0.0.1:8102/docs để thử API. Lần đầu, launcher tạo `.venv` trong dự án và tải các gói Python. Sau bước này dashboard chạy offline, tải CSS và JavaScript từ localhost. Dùng Ctrl+C để dừng. Giao diện desktop vẫn chạy riêng bằng `.\start.cmd`. Khi chuyển từ bản ZIP sang bản clone, đóng ứng dụng cũ rồi sao chép thư mục `data` sang bản mới trước lần chạy đầu.
+
+## Dùng dashboard
+
+1. Vào **Môn học → Thêm môn** hoặc dùng **Thêm việc** rồi nhập tên môn mới. Mỗi việc có hạn, số phút dự kiến, ưu tiên, độ khó và các việc tiên quyết.
+2. Trong **Giờ rảnh & giới hạn**, đặt giờ học cho từng ngày, ngày bận, trần phút học và thời gian nghỉ. Lưu để Agent tính lại lịch.
+3. Ở **Tổng quan**, chọn ngày trong lịch tuần để xem các buổi. Dùng mũi tên đổi tuần hoặc **Hôm nay** để quay lại. **Xem buổi** hiển thị lý do xếp lịch và cho phép bỏ buổi. **Tạo lịch / Xếp lại lịch** gọi bộ lập lịch thật. Khi sửa việc hoặc ghi kết quả, lịch cũng tự cập nhật.
+4. Chọn **Việc học → Chi tiết → Ghi tiến độ**, nhập phút thực học và ước lượng còn lại. Nhập 0 cho phần còn lại để hoàn thành. Dùng bộ lọc để xem việc hoàn thành và **Nhật ký** để đối chiếu thời gian thực học.
+5. Dashboard hiển thị hạn sắp tới, việc quá hạn, số phút chưa xếp được và khối lượng còn lại theo môn. Khi đang mở, trang làm mới mỗi phút, tạm dừng lúc đang điền biểu mẫu.
 
 Hướng dẫn payload, mã phản hồi và ví dụ PowerShell nằm trong [API.md](API.md). Schema máy đọc được tại `GET /openapi.json`.
 
@@ -69,4 +77,6 @@ Chạy kiểm thử trong PowerShell tại thư mục dự án:
 ```
 
 Bộ kiểm thử khởi tạo dữ liệu tạm riêng và thực sự tạo cửa sổ Tk ẩn để kiểm tra giao diện nạp mẫu. Để chạy từ mã nguồn bằng Python có sẵn, dùng Python 3.10+ có Tkinter và SQLite, sau đó chạy `python -B app.py`.
+
+Kiểm thử HTTP khởi chạy Uvicorn trên cổng loopback tạm. Kiểm thử trình duyệt dùng Edge và Node.js 22+ để thao tác với lịch, tạo việc, ghi kết quả, lọc việc hoàn thành và kiểm tra lỗi trên biểu mẫu. Bước trình duyệt được bỏ qua nếu thiếu Edge hoặc Node. Dashboard không cần Node để chạy.
 
