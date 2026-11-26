@@ -7,12 +7,31 @@ Dashboard web, ứng dụng desktop tiếng Việt và HTTP API lập lịch t�
 Cài Python 3.13 x64 có Python Launcher, Tkinter và pip. Trong PowerShell:
 
 ```powershell
-git clone https://github.com/HPHind110/study-planning-agent.git
+git clone --branch feature/academic-planning-v2 https://github.com/HPHind110/study-planning-agent.git
 cd study-planning-agent
 .\start-api.cmd
 ```
 
 Từ thư mục dự án, **một lệnh `.\start-api.cmd`** chạy cả dashboard và API. Mở **http://127.0.0.1:8102/** để dùng dashboard hoặc http://127.0.0.1:8102/docs để thử API. Lần đầu, launcher tạo `.venv` trong dự án và tải các gói Python. Sau bước này dashboard chạy offline, tải CSS và JavaScript từ localhost. Dùng Ctrl+C để dừng. Giao diện desktop vẫn chạy riêng bằng `.\start.cmd`. Khi chuyển từ bản ZIP sang bản clone, đóng ứng dụng cũ rồi sao chép thư mục `data` sang bản mới trước lần chạy đầu.
+
+## Cập nhật bản Windows đang dùng
+
+Đóng cửa sổ desktop và dừng Uvicorn bằng Ctrl+C. Trong bản cài đã giải nén hoặc chép tay, dùng PowerShell dưới đây để cập nhật mã từ nhánh tính năng. Lệnh giải nén các file đã commit vào thư mục ứng dụng. SQLite, bản sao lưu và môi trường Python nằm ngoài gói mã nguồn.
+
+```powershell
+$appDir = 'C:\agent-projects\study-planning-agent'
+$stage = Join-Path $env:TEMP ([guid]::NewGuid().ToString())
+git clone --single-branch --branch feature/academic-planning-v2 https://github.com/HPHind110/study-planning-agent.git $stage
+if ($LASTEXITCODE) { throw 'Clone failed' }
+$zip = Join-Path $stage 'upgrade.zip'
+git -C $stage archive --format=zip -o $zip HEAD
+if ($LASTEXITCODE) { throw 'Archive failed' }
+Expand-Archive -LiteralPath $zip -DestinationPath $appDir -Force -ErrorAction Stop
+Set-Location $appDir
+.\start-api.cmd
+```
+
+Nếu thư mục cài là một Git clone, dùng `git fetch origin`, `git switch feature/academic-planning-v2`, `git pull --ff-only`, rồi chạy cùng lệnh khởi động.
 
 ## Dùng dashboard
 
@@ -23,6 +42,22 @@ Từ thư mục dự án, **một lệnh `.\start-api.cmd`** chạy cả dashboa
 5. Dashboard hiển thị hạn sắp tới, việc quá hạn, số phút chưa xếp được và khối lượng còn lại theo môn. Khi đang mở, trang làm mới mỗi phút, tạm dừng lúc đang điền biểu mẫu.
 
 Hướng dẫn payload, mã phản hồi và ví dụ PowerShell nằm trong [API.md](API.md). Schema máy đọc được tại `GET /openapi.json`.
+
+### Lập kế hoạch học kỳ
+
+Trong **Thêm việc**, nhập thời điểm có thể bắt đầu, chọn hạn cứng cho hạn nộp chính thức hoặc hạn mềm cho mốc nội bộ. Thêm ghi chú và chọn việc tiên quyết. Ví dụ, đặt buổi thuyết trình ngày 14/12 vào **Lịch cố định**, rồi đặt việc sửa báo cáo bắt đầu từ 15/12. Việc đã lên lịch cho tương lai vẫn cần được xác nhận bằng tiến độ thực tế.
+
+Trong **Lịch cố định**, đặt ngày kết thúc kỳ lập lịch, giới hạn phút cho từng thứ và các ngoại lệ. Muốn tăng giờ sau khi hết học trên lớp, chọn khoảng 02/01–10/01 rồi nhập khung mới và giới hạn phút. Thêm lớp hàng tuần có ngày kết thúc lặp. Sự kiện hiển thị trong lịch tuần, chiếm khung giờ và không trừ vào trần phút tự học. Thứ tự áp dụng là lịch tuần → ngoại lệ ngày → loại bỏ ngày nghỉ và thời gian sự kiện. Các sự kiện trùng nhau chỉ chặn thời gian một lần.
+
+**Phân tích tải** cho biết lượng đã xếp và chưa xếp, rủi ro theo việc, nhu cầu và quỹ giờ đến từng hạn, cùng các ngày/tuần dồn hạn. Một ngày có nhiều việc đến hạn vẫn có thể hoàn thành nếu học trước. Cảnh báo tách việc quá hạn, thiếu chỗ trước hạn và phần trì hoãn ngoài kỳ. Mọi đề xuất dời hạn mềm cần người dùng quyết định.
+
+**Nhập / xuất** nhận tệp JSON UTF-8. Chọn thêm mới hoặc thay theo phạm vi, xem danh sách thay đổi rồi xác nhận. Có thể tải cả gói kế hoạch hoặc bản sao đầy đủ có nhật ký. Sau thay thế, bản sao trước thay đổi xuất hiện ở cùng màn hình. Để phục hồi, tải bản sao, chọn **Khôi phục toàn bộ**, bật xác nhận phạm vi rồi xem trước. Xem ví dụ và quy tắc ID trong [API.md](API.md).
+
+### Dữ liệu cũ và giới hạn
+
+Ứng dụng đọc trực tiếp hàng JSON hiện có trong SQLite. Việc cũ được hiểu là hạn cứng, không có ngày bắt đầu và ghi chú. Thiết lập cũ tiếp tục có hiệu lực. Bảng sao lưu chỉ được tạo khi cần. Giao diện desktop cũ vẫn dùng chung bộ lập lịch, giữ các thuộc tính mới khi sửa việc. Dùng web để chỉnh các ràng buộc mới.
+
+Tất cả thời điểm có độ chính xác một phút theo giờ máy. Sự kiện qua đêm chặn cả phần thời gian của ngày hôm sau. Giao diện áp dụng ngoại lệ khoảng ngày bằng cách lưu từng ngày. Lịch là dự báo tham lam, không chứng minh tối ưu. Quỹ phút ước tính giả sử có công việc chia nhỏ sẵn sàng làm; ngày bắt đầu, tiên quyết và hạn cụ thể có thể làm giảm số phút dùng được. Bản sao đầy đủ chứa dữ liệu cá nhân và nên được lưu riêng.
 
 ## Mở bản ZIP desktop đã đóng gói
 
@@ -45,9 +80,9 @@ Tạo việc “Ôn phương trình đặc trưng”, dự kiến 90 phút, ưu 
 
 ## Cách Agent quyết định
 
-Lịch sử dụng giờ địa phương của máy và xét 90 ngày kể từ hôm nay. Mặc định mỗi ngày tối đa 120 phút tập trung, mỗi buổi tối đa 40 phút, cách hai buổi ít nhất 10 phút. Ngày không có khung rảnh sẽ trống. Một buổi đang diễn ra thường được giữ khi làm mới. Thay đổi giới hạn nhắm tới các buổi tiếp theo.
+Lịch dùng ngày kết thúc đã chọn, mặc định 90 ngày kể từ hôm nay. Mặc định mỗi ngày tối đa 120 phút tập trung, mỗi buổi tối đa 40 phút, cách hai buổi ít nhất 10 phút. Buổi đang diễn ra được giữ nếu còn phù hợp với các ràng buộc mới.
 
-Agent duyệt quan hệ tiên quyết, chuyển hạn sớm của việc phụ thuộc cho các bước cần làm trước. Trong các việc có thể bắt đầu, Agent chọn việc có **hạn hiệu lực trừ số phút còn lại** sớm nhất. Khi bằng nhau, nó chọn ưu tiên cao hơn, rồi độ khó cao hơn, cuối cùng dùng ID để kết quả ổn định. Sau mỗi buổi giả định hoàn tất, Agent xét lại các việc đã đủ điều kiện. Việc được xếp trong tương lai chỉ là dự báo. Tiến độ thực tế thay đổi khi người dùng xác nhận.
+Agent truyền hạn sớm qua các việc tiên quyết và chọn việc có ít thời gian dư nhất sau khi tính khối lượng còn lại. Hệ số khối lượng phụ thuộc quỹ phút của ngày và tối đa bằng 8, giúp việc dài được bắt đầu sớm. Khi bằng điểm, Agent xét hạn cứng, ưu tiên, độ khó rồi ID. Nếu các việc đều chưa đến ngày bắt đầu, Agent tiến tới thời điểm đủ điều kiện tiếp theo. Các lần tính cùng dữ liệu và thời điểm cho cùng lịch.
 
 Đây là thuật toán tham lam. Cảnh báo thiếu thời gian cho biết lịch vừa tạo còn thiếu bao nhiêu phút, không chứng minh mọi cách sắp xếp đều thất bại. Việc đã quá hạn vẫn xuất hiện trong danh sách để người dùng đổi hạn hoặc ghi kết quả. Agent tính lại khi mở ứng dụng, khi lưu thay đổi và mỗi phút trong lúc mở.
 
