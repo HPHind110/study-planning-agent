@@ -1,112 +1,25 @@
 """HTTP interface to the same transactional planner used by the desktop app."""
 from datetime import datetime
-from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from planner import ROOT, Store, event, stamp
 
-Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=250)]
-Minutes = Annotated[int, Field(strict=True, ge=0, le=100000)]
-Level = Annotated[int, Field(strict=True, ge=1, le=5)]
-Deadline = Annotated[str, Field(pattern=r"^\d{4}-\d\d-\d\d \d\d:\d\d$")]
+from schemas import Course, Rename, TaskInput, Task, TaskEdit, Plan, Replan, Progress, Health, FixedEvent
+from exchange import ImportRequest, prepare, commit, export_data, get_backup, backup_ids, snapshot
 
-
-class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class TaskInput(Model):
-    name: Name
-    course: Name
-    kind: Literal["Bài tập", "Kỳ thi", "Mục tiêu"] = "Bài tập"
-    due: Deadline
-    estimate: Annotated[int, Field(strict=True, ge=1, le=100000)]
-    difficulty: Level = 3
-    priority: Level = 3
-    deps: list[Name] = Field(default_factory=list)
-
-
-class Task(TaskInput):
-    id: str
-    left: Minutes
-
-
-class Session(Model):
-    task: str
-    start: str
-    end: str
-    minutes: int
-    reason: str
-
-
-class Plan(Model):
-    sessions: list[Session]
-    warnings: list[str]
-
-
-class Change(Model):
-    id: Name
-    due: Deadline | None = None
-    left: Minutes | None = None
-    priority: Level | None = None
-
-
-class Settings(Model):
-    windows: Annotated[list[str], Field(min_length=7, max_length=7)] | None = None
-    off: list[str] | None = None
-    cap: Annotated[int, Field(strict=True, ge=1, le=720)] | None = None
-    block: Annotated[int, Field(strict=True, ge=5, le=120)] | None = None
-    rest: Annotated[int, Field(strict=True, ge=1, le=60)] | None = None
-
-
-class Skip(Model):
-    task: Name
-    start: Deadline
-
-
-class Replan(Model):
-    changes: list[Change] = Field(default_factory=list)
-    settings: Settings | None = None
-    skip: list[Skip] = Field(default_factory=list)
-
-
-class Health(Model):
-    status: Literal["ok"]
-
-
-class Course(Model):
-    name: Name
-
-
-class Rename(Course):
-    new_name: Name
-
-
-class TaskEdit(TaskInput):
-    left: Minutes
-
-
-class Progress(Model):
-    task: Name
-    actual: Annotated[int, Field(strict=True, ge=0, le=1440)]
-    remaining: Minutes
-    start: Deadline | None = None
-
-
-def create_app(store=None):
+def create_app(store=None, clock_fn=datetime.now):
     api = FastAPI(title="Study Planning Agent", version="1.0.0")
 
     def db():
         return store if store is not None else Store(ROOT / "data")
 
-    def update(change=lambda s: None):
+    def update(change=None):
         try:
-            return db().update(change)
+            return db().update(change, now=clock_fn())
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
@@ -142,14 +55,18 @@ def create_app(store=None):
                                 and h["start"] == skip.start), None)
                 if session is None:
                     raise HTTPException(409, "Buổi đã đổi. Lấy lại lịch hiện tại.")
-                event(s,session,datetime.now(),0,s["tasks"][skip.task]["left"],"Bỏ buổi")
+                event(s,session,clock_fn(),0,s["tasks"][skip.task]["left"],"Bỏ buổi")
                 s["sessions"].remove(session)
             for item in request.changes:
                 if item.id not in s["tasks"]:
                     raise HTTPException(404, "Không tìm thấy việc.")
                 s["tasks"][item.id].update(item.model_dump(exclude={"id"},exclude_none=True))
+                if "start_at" in item.model_fields_set:
+                    s["tasks"][item.id]["start_at"]=item.start_at
             if request.settings:
                 s["settings"].update(request.settings.model_dump(exclude_none=True))
+                if "horizon_end" in request.settings.model_fields_set:
+                    s["settings"]["horizon_end"] = request.settings.horizon_end
         state, warnings = update(apply)
         return {"sessions": state["sessions"], "warnings": warnings}
 
@@ -169,6 +86,7 @@ def create_app(store=None):
     @api.get("/dashboard")
     def dashboard():
         state, _ = update()
+        state["backups"]=backup_ids(db())
         return state
 
     @api.post("/courses", status_code=201)
@@ -212,9 +130,9 @@ def create_app(store=None):
                 raise HTTPException(404, "Không tìm thấy việc.")
             if body.course not in s["courses"]:
                 s["courses"].append(body.course)
-            s["tasks"][key] = body.model_dump()
-        update(edit)
-        return dict(body.model_dump(), id=key)
+            s["tasks"][key].update(body.model_dump(exclude_unset=True))
+        state,_ = update(edit)
+        return dict(state["tasks"][key], id=key)
 
     @api.delete("/tasks/{key:path}")
     def delete_task(key: str):
@@ -232,7 +150,7 @@ def create_app(store=None):
         def log(s):
             if body.task not in s["tasks"]:
                 raise HTTPException(404, "Không tìm thấy việc.")
-            now = datetime.now()
+            now = clock_fn()
             session = dict(task=body.task, start=stamp(now), end=stamp(now), minutes=0)
             if body.start:
                 session = next((h for h in s["sessions"] if h["start"] == body.start
@@ -243,6 +161,54 @@ def create_app(store=None):
             event(s, session, now, body.actual, body.remaining, "Đã ghi")
         state, _ = update(log)
         return state["tasks"][body.task]
+
+    @api.post("/events", status_code=201)
+    def create_event(body: FixedEvent):
+        key=uuid4().hex
+        update(lambda s:s.setdefault("events",{}).update({key:body.model_dump()}))
+        return dict(id=key, **body.model_dump())
+
+    @api.get("/events")
+    def list_events():
+        return [dict(id=k,**v) for k,v in db().read().get("events",{}).items()]
+
+    @api.put("/events/{key:path}")
+    def edit_event(key:str, body:FixedEvent):
+        def edit(s):
+            if key not in s.get("events",{}): raise HTTPException(404,"Không tìm thấy sự kiện.")
+            s["events"][key]=body.model_dump()
+        update(edit)
+        return dict(id=key,**body.model_dump())
+
+    @api.delete("/events/{key:path}")
+    def delete_event(key:str):
+        def remove(s):
+            if key not in s.get("events",{}): raise HTTPException(404,"Không tìm thấy sự kiện.")
+            del s["events"][key]
+        update(remove)
+        return {"deleted":key}
+
+    @api.get("/planning/export")
+    def export(backup:bool=False):
+        s=db().read()
+        return snapshot(s) if backup else export_data(s)
+
+    @api.get("/planning/backups/{key}")
+    def backup(key:str):
+        data=get_backup(db(),key)
+        if data is None: raise HTTPException(404,"Không tìm thấy bản sao.")
+        return data
+
+    @api.post("/planning/preview")
+    def preview(body:ImportRequest):
+        result,_=prepare(db().read(),body,clock_fn())
+        return result
+
+    @api.post("/planning/import")
+    def apply_import(body:ImportRequest):
+        try: return commit(db(),body,clock_fn())
+        except ValueError as exc: raise HTTPException(422,str(exc)) from exc
+        except RuntimeError as exc: raise HTTPException(409,str(exc)) from exc
 
     return api
 

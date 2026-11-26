@@ -146,7 +146,7 @@ class App:
         actual = sum(h["actual"] for h in s["history"])
         done = sum(t["left"]==0 for t in tasks.values())
         self.summary.config(text=f"Hoàn thành {done}/{len(tasks)} việc     •     Đã học {actual} phút     •     Còn {sum(t['left'] for t in tasks.values())} phút     •     {len(alerts)} cảnh báo")
-        self.hint.config(text="Bắt đầu ở Việc học → Nạp ví dụ, hoặc thêm môn của mày." if not tasks else f"{len(s['sessions'])} buổi trong kế hoạch 90 ngày · giờ địa phương")
+        self.hint.config(text="Bắt đầu ở Việc học → Nạp ví dụ, hoặc thêm môn của mày." if not tasks else f"{len(s['sessions'])} buổi trong kỳ lập lịch · giờ địa phương")
 
     def selected(self,key):
         rows = self.tables[key].selection()
@@ -195,7 +195,7 @@ class App:
         def save(v):
             item = dict(name=v[0],course=v[1],kind=v[2],due=v[3],estimate=int(v[4]),priority=int(v[5]),difficulty=int(v[6]),
                         deps=[x.strip() for x in v[7].split(",") if x.strip()],left=int(v[8] if edit else v[4]))
-            self.refresh(lambda s:s["tasks"].update({k:item}))
+            self.refresh(lambda s:s["tasks"].update({k:s["tasks"].get(k,{}) | item}))
         Form(self.root,"Việc học",fields,save)
 
     def delete_task(self):
@@ -265,7 +265,7 @@ class App:
                    ("Nghỉ giữa buổi (phút)",cfg["rest"],None),("Ngày bận YYYY-MM-DD, cách dấu phẩy",", ".join(cfg["off"]),None)]
         def save(v):
             new = dict(windows=v[:7],cap=int(v[7]),block=int(v[8]),rest=int(v[9]),off=[x.strip() for x in v[10].split(",") if x.strip()])
-            self.refresh(lambda s:s.update(settings=new))
+            self.refresh(lambda s:s["settings"].update(new))
         Form(self.root,"Giờ rảnh · ví dụ 08:00-10:00, 19:00-21:00",fields,save)
 
 

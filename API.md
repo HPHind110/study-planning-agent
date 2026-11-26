@@ -1,5 +1,7 @@
 # HTTP API
 
+**API học kỳ v2** bổ sung `start_at`, `deadline_type`, `notes`, thiết lập theo ngày, sự kiện, kỳ lập lịch và nhập/xuất nguyên tử. [Xem schema, ví dụ JSON và cách khôi phục](API-v2.md).
+
 Địa chỉ mặc định `http://127.0.0.1:8102`. Giờ hạn và giờ buổi học theo đồng hồ địa phương của máy chạy Agent. Các lệnh ghi chạy trong giao dịch SQLite. Một thay đổi không hợp lệ sẽ hủy toàn bộ yêu cầu đó.
 
 | Endpoint | JSON gửi | HTTP thành công và JSON trả về |

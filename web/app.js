@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const pages = {overview:'Tổng quan',tasks:'Việc học',courses:'Môn học',history:'Nhật ký'};
+const pages = {calendar:'Lịch cố định', workload:'Phân tích tải', exchange:'Nhập / xuất',overview:'Tổng quan',tasks:'Việc học',courses:'Môn học',history:'Nhật ký'};
 const dayNames = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'];
 const pad = v => String(v).padStart(2,'0');
 const iso = d => [d.getFullYear(),pad(d.getMonth()+1),pad(d.getDate())].join('-');
@@ -45,11 +45,12 @@ function modal(title,fields,save,label='Lưu',extra=''){
   submit=save;if(!$('modal').open)$('modal').showModal();
 }
 $('form').addEventListener('submit',e=>{
-  e.preventDefault();const data=new FormData(e.target);if(submit)perform(()=>submit(data),'Đã lưu thay đổi.');
+  e.preventDefault();const data=new FormData(e.target);
+  if(submit)perform(()=>submit(data),e.submitter?.textContent==='Xem trước'?'Đã xem trước. Dữ liệu chưa được ghi.':'Đã lưu thay đổi.');
 });
 const entries=()=>Object.entries(state.tasks);
 const metric=(title,value,symbol)=>'<div class="metric"><span class="symbol">'+symbol+'</span><small>'+title+'</small><strong>'+value+'</strong></div>';
-function deadline(t){const late=t.left>0 && new Date(t.due.replace(' ','T'))<new Date();return (late?'Quá hạn · ':'Hạn ')+short(t.due.slice(0,10))+' '+t.due.slice(11)}
+function deadline(t){const late=t.left>0 && new Date(t.due.replace(' ','T'))<new Date();return (t.deadline_type==='soft'?'Hạn mềm · ':'Hạn cứng · ')+(late?'Quá hạn · ':'')+short(t.due.slice(0,10))+' '+t.due.slice(11)}
 function taskRow([id,t]){
  return '<div class="row"><div class="grow"><h3>'+esc(t.name)+'</h3><small>'+esc(t.course)+' · '+esc(deadline(t))+'</small></div>'+tag(t)+'<span class="status">'+(t.left?mins(t.left):'Hoàn thành')+'</span>'+button('Chi tiết','edit',id)+'</div>';
 }
@@ -59,10 +60,10 @@ function calendar(){
  const sessions=state.sessions.filter(h=>h.start.slice(0,10)===selected);
  const grid=days.map((d,i)=>{
    const hours=sum(state.sessions.filter(h=>h.start.startsWith(d)),h=>h.minutes);
-   return '<button type="button" aria-pressed="'+(d===selected)+'" data-action="day" data-id="'+d+'" class="day '+(d===selected?'active ':'')+(d===today()?'today':'')+'">'+dayNames[i]+'<strong>'+d.slice(-2)+'</strong><div class="track"><div class="fill" style="width:'+Math.min(100,hours/state.settings.cap*100)+'%"></div></div><small>'+hours+' phút</small></button>';
+   return '<button type="button" aria-pressed="'+(d===selected)+'" data-action="day" data-id="'+d+'" class="day '+(d===selected?'active ':'')+(d===today()?'today':'')+'">'+dayNames[i]+'<strong>'+d.slice(-2)+'</strong><div class="track"><div class="fill" style="width:'+Math.min(100,hours/state.settings.cap*100)+'%"></div></div><small>'+hours+' phút'+(occurrenceList(d).length?' · '+occurrenceList(d).length+' sự kiện':'')+'</small></button>';
  }).join('');
  const agenda=sessions.map(h=>'<div class="row"><span class="time">'+h.start.slice(11)+' – '+h.end.slice(11)+'</span><div class="grow"><h3>'+esc(state.tasks[h.task].name)+'</h3><small>'+esc(state.tasks[h.task].course)+'</small></div>'+button('Xem buổi','session',h.start)+'</div>').join('');
- return '<section class="panel"><div class="head"><div><h2>Lịch học tuần</h2><small>'+short(first)+' – '+short(last)+' / '+last.slice(0,4)+'</small></div><div class="toolbar">'+button('←','prev')+button('Hôm nay','today')+button('→','next')+'</div></div><div class="week">'+grid+'</div><div class="head section-title"><h3>Buổi học ngày '+short(selected)+'</h3>'+button(state.sessions.length?'Xếp lại lịch':'Tạo lịch',state.sessions.length?'replan':'generate')+'</div>'+(agenda||empty('Chưa có buổi học trong ngày này.'))+'</section>';
+ return '<section class="panel"><div class="head"><div><h2>Lịch học tuần</h2><small>'+short(first)+' – '+short(last)+' / '+last.slice(0,4)+'</small></div><div class="toolbar">'+button('←','prev')+button('Hôm nay','today')+button('→','next')+'</div></div><div class="week">'+grid+'</div><div class="head section-title"><h3>Buổi học ngày '+short(selected)+'</h3>'+button(state.sessions.length?'Xếp lại lịch':'Tạo lịch',state.sessions.length?'replan':'generate')+'</div>'+((occurrenceList(selected).map(eventRow).join('')+agenda)||empty('Chưa có buổi học trong ngày này.'))+'</section>';
 }
 function overview(){
  const tasks=entries(),open=tasks.filter(([,t])=>t.left),done=tasks.length-open.length;
@@ -86,17 +87,20 @@ function render(){
   const group=entries().filter(([,t])=>t.course===c);return '<article class="course"><h3>'+esc(c)+'</h3><p>'+group.length+' việc · '+mins(sum(group,([,t])=>t.left))+' còn lại</p>'+button('Quản lý','courseEdit',c)+'</article>';
  }).join('')||empty('Thêm môn học đầu tiên.'))+'</div></section>';
  if(page==='history')html='<section class="panel"><h2>Nhật ký học tập</h2>'+(state.history.slice().reverse().map(h=>'<div class="row"><div class="grow"><h3>'+esc(h.name)+'</h3><small>'+esc(h.at)+' · '+esc(h.status)+'</small></div><span>'+mins(h.actual)+' thực học</span><small>Còn '+mins(h.remaining)+'</small></div>').join('')||empty('Kết quả đã ghi và buổi bị bỏ sẽ xuất hiện ở đây.'))+'</section>';
+ if(page==='calendar')html=calendarConfig();
+ if(page==='workload')html=workload();
+ if(page==='exchange')html=exchangePage();
  $('view').innerHTML=html;
 }
 function taskForm(id){
  const t=state.tasks[id]||{name:'',course:state.courses[0]||'',kind:'Bài tập',due:offset(today(),7)+' 22:00',estimate:60,priority:3,difficulty:3,deps:[]};
- const fields=field('Tên việc',input('name',t.name,'text','required maxlength="250"'))+field('Môn học',input('course',t.course,'text','required list="courses" maxlength="250"')+'<datalist id="courses">'+state.courses.map(c=>option(c)).join('')+'</datalist>')+
+ const fields=academicFields(t)+field('Tên việc',input('name',t.name,'text','required maxlength="250"'))+field('Môn học',input('course',t.course,'text','required list="courses" maxlength="250"')+'<datalist id="courses">'+state.courses.map(c=>option(c)).join('')+'</datalist>')+
  field('Loại việc','<select name="kind">'+['Bài tập','Kỳ thi','Mục tiêu'].map(k=>option(k,k,k===t.kind)).join('')+'</select>')+
  field('Hạn hoàn thành',input('due',t.due.replace(' ','T'),'datetime-local','required'))+field('Khối lượng dự kiến (phút)',num('estimate',t.estimate,1,100000))+
  (id?field('Khối lượng còn lại (phút)',num('left',t.left,0,100000)):'')+field('Ưu tiên (1–5)',num('priority',t.priority,1,5))+field('Độ khó (1–5)',num('difficulty',t.difficulty,1,5))+
  field('Việc tiên quyết (có thể chọn nhiều)','<select multiple name="deps">'+entries().filter(([k])=>k!==id).map(([k,v])=>option(k,v.name,t.deps.includes(k))).join('')+'</select>');
  modal(id?'Chi tiết việc học':'Thêm việc học',fields,async f=>{
-   const body=Object.fromEntries(f);body.due=body.due.replace('T',' ');body.deps=f.getAll('deps');
+   const body=Object.fromEntries(f);body.start_at=body.start_at.replace('T',' ')||null;body.due=body.due.replace('T',' ');body.deps=f.getAll('deps');
    for(const k of ['estimate','difficulty','priority','left'])if(k in body)body[k]=Number(body[k]);
    await change(id?'/tasks/'+encodeURIComponent(id):'/tasks',id?'PUT':'POST',body);
  },'Lưu việc',id?button('Ghi tiến độ','log',id)+button('Xóa','taskDelete',id,'danger'):'');
@@ -117,6 +121,7 @@ document.addEventListener('click',e=>{
  if(a==='refresh')return perform(refresh);
  if(!state)return;
  if(p){page=p;render();return}
+ if(['evNew','evEdit','evRemove','horizon','override','export','backup','import'].includes(a))return academicAction(a,id);
  if(a==='close')return $('modal').close();
  if(a==='new'||a==='edit')return taskForm(id||'');
  if(a==='settings')return settings();

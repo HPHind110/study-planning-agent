@@ -77,6 +77,27 @@ try{
   await click('[data-action="settings"]');
   await js("document.querySelector('[name=cap]').value=75;document.querySelector('#form').requestSubmit()");
   await wait("!busy && state.settings.cap===75");
+  await click('[data-page="calendar"]');
+  await click('[data-action="evNew"]');
+  await js("document.querySelector('[name=name]').value='Academic meeting';document.querySelector('#form').requestSubmit()");
+  await wait("!busy && Object.values(state.events||{}).some(ev=>ev.name==='Academic meeting')");
+  await click('[data-page="overview"]');
+  assert.ok(await js("document.querySelector('#view').textContent.includes('Academic meeting')"));
+  await click('[data-page="workload"]');
+  assert.ok(await js("document.querySelectorAll('#view table').length>=3"));
+  await click('[data-page="exchange"]');
+  await click('[data-action="import"]');
+  await js(`{
+    const transfer=new DataTransfer();
+    transfer.items.add(new File([JSON.stringify({tasks:[{id:'browser-import',name:'Imported task',
+      course:'Systems',due:offset(today(),5)+' 22:00',estimate:80}]})],'input.json'));
+    document.querySelector('[name=file]').files=transfer.files;
+    document.querySelector('#form').requestSubmit();
+  }`);
+  await wait("!busy && document.querySelector('#dialogTitle').textContent.includes('Xem trước')");
+  assert.ok(await js("!state.tasks['browser-import']"));
+  await js("document.querySelector('#form').requestSubmit()");
+  await wait("!busy && state.tasks['browser-import']?.left===80");
 }finally{
   try{if(socket?.readyState===1)await send('Browser.close')}finally{socket?.close();if(browser.exitCode===null)browser.kill()}
 }

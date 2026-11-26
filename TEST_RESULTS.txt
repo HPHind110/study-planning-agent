@@ -1,5 +1,24 @@
 Windows-11-10.0.26300-SP0
 Python 3.13.15 (tags/v3.13.15:4061bc4, Aug  5 2026, 13:05:39) [MSC v.1944 64 bit (AMD64)]
+Clean source tree, isolated SQLite fixtures.
+test_active_session_invalidated_by_event (test_academic.AcademicCalendar.test_active_session_invalidated_by_event) ... ok
+test_fixed_event_partial_block_overlap_and_recurrence_end (test_academic.AcademicCalendar.test_fixed_event_partial_block_overlap_and_recurrence_end) ... ok
+test_future_release_inside_window_and_soft_deadline (test_academic.AcademicCalendar.test_future_release_inside_window_and_soft_deadline) ... ok
+test_hard_tie_and_legacy_task (test_academic.AcademicCalendar.test_hard_tie_and_legacy_task) ... ok
+test_horizon_extension_off_and_weekday_override (test_academic.AcademicCalendar.test_horizon_extension_off_and_weekday_override) ... ok
+test_incomplete_prerequisite_reopens_projection (test_academic.AcademicCalendar.test_incomplete_prerequisite_reopens_projection) ... ok
+test_last_weekly_overnight_occurrence_spills_into_next_day (test_academic.AcademicCalendar.test_last_weekly_overnight_occurrence_spills_into_next_day) ... ok
+test_realistic_and_impossible_semester (test_academic.AcademicCalendar.test_realistic_and_impossible_semester) ... ok
+test_reserve_tight_future_exam_window (test_academic.AcademicCalendar.test_reserve_tight_future_exam_window) ... ok
+test_tight_release_despite_high_total_capacity (test_academic.AcademicCalendar.test_tight_release_despite_high_total_capacity) ... ok
+test_export_unicode_events_settings (test_academic.Bulk.test_export_unicode_events_settings) ... ok
+test_failed_write_rolls_back_backup (test_academic.Bulk.test_failed_write_rolls_back_backup) ... ok
+test_invalid_duplicate_and_rollback (test_academic.Bulk.test_invalid_duplicate_and_rollback) ... ok
+test_preview_is_readonly_and_dependencies_stable (test_academic.Bulk.test_preview_is_readonly_and_dependencies_stable) ... ok
+test_progress_scoped_replace_backup_and_restore (test_academic.Bulk.test_progress_scoped_replace_backup_and_restore) ... ok
+test_stale_preview_scope_and_settings (test_academic.Bulk.test_stale_preview_scope_and_settings) ... ok
+test_events_import_and_backup_contract (test_api.AcademicHTTP.test_events_import_and_backup_contract) ... ok
+test_legacy_edit_preserves_v2_fields (test_api.AcademicHTTP.test_legacy_edit_preserves_v2_fields) ... ok
 test_browser_workflow (test_api.HTTPWorkflow.test_browser_workflow) ... ok
 test_end_to_end (test_api.HTTPWorkflow.test_end_to_end) ... ok
 test_local_web_assets (test_api.HTTPWorkflow.test_local_web_assets) ... ok
@@ -21,6 +40,6 @@ test_priority_tie (test_planner.Scheduling.test_priority_tie) ... ok
 test_skip_future (test_planner.Scheduling.test_skip_future) ... ok
 
 ----------------------------------------------------------------------
-Ran 19 tests in 4.586s
+Ran 37 tests in 5.336s
 
 OK
