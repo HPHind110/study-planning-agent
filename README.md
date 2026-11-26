@@ -7,12 +7,14 @@ Dashboard web, ứng dụng desktop tiếng Việt và HTTP API lập lịch t�
 Cài Python 3.13 x64 có Python Launcher, Tkinter và pip. Trong PowerShell:
 
 ```powershell
-git clone --branch feature/academic-planning-v2 https://github.com/HPHind110/study-planning-agent.git
+git clone --branch feature/scheduling-optimization https://github.com/HPHind110/study-planning-agent.git
 cd study-planning-agent
 .\start-api.cmd
 ```
 
 Từ thư mục dự án, **một lệnh `.\start-api.cmd`** chạy cả dashboard và API. Mở **http://127.0.0.1:8102/** để dùng dashboard hoặc http://127.0.0.1:8102/docs để thử API. Lần đầu, launcher tạo `.venv` trong dự án và tải các gói Python. Sau bước này dashboard chạy offline, tải CSS và JavaScript từ localhost. Dùng Ctrl+C để dừng. Giao diện desktop vẫn chạy riêng bằng `.\start.cmd`. Khi chuyển từ bản ZIP sang bản clone, đóng ứng dụng cũ rồi sao chép thư mục `data` sang bản mới trước lần chạy đầu.
+
+Quy tắc chọn lịch, chẩn đoán và benchmark nằm trong [OPTIMIZATION.md](OPTIMIZATION.md).
 
 ## Cập nhật bản Windows đang dùng
 
@@ -21,7 +23,7 @@ Từ thư mục dự án, **một lệnh `.\start-api.cmd`** chạy cả dashboa
 ```powershell
 $appDir = 'C:\agent-projects\study-planning-agent'
 $stage = Join-Path $env:TEMP ([guid]::NewGuid().ToString())
-git clone --single-branch --branch feature/academic-planning-v2 https://github.com/HPHind110/study-planning-agent.git $stage
+git clone --single-branch --branch feature/scheduling-optimization https://github.com/HPHind110/study-planning-agent.git $stage
 if ($LASTEXITCODE) { throw 'Clone failed' }
 $zip = Join-Path $stage 'upgrade.zip'
 git -C $stage archive --format=zip -o $zip HEAD
@@ -31,7 +33,7 @@ Set-Location $appDir
 .\start-api.cmd
 ```
 
-Nếu thư mục cài là một Git clone, dùng `git fetch origin`, `git switch feature/academic-planning-v2`, `git pull --ff-only`, rồi chạy cùng lệnh khởi động.
+Nếu thư mục cài là một Git clone, dùng `git fetch origin`, `git switch feature/scheduling-optimization`, `git pull --ff-only`, rồi chạy cùng lệnh khởi động.
 
 ## Dùng dashboard
 

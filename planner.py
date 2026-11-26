@@ -2,6 +2,8 @@
 import json
 import re
 import sqlite3
+from time import perf_counter
+from optimizer import Problem, optimize
 from contextlib import closing
 from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta
@@ -100,7 +102,23 @@ def event(s, session, now, actual, remaining, status):
                              actual=actual, remaining=remaining, status=status))
 
 
-def plan(s, now):
+def settle(s,now):
+    """Record expired appointments exactly once before capturing planning inputs."""
+    keep=[]
+    for row in s["sessions"]:
+        if clock(row["end"])<=now:
+            k=row["task"]
+            if k in s["tasks"]:
+                event(s,row,now,0,s["tasks"][k]["left"],"Chưa ghi nhận")
+        else:
+            keep.append(row)
+    s["sessions"]=keep
+
+
+def plan(s, now, *, settled=False, baseline_only=False, seconds=3):
+    started=perf_counter()
+    if not settled:
+        settle(s,now)
     order = validate(s)
     now = now.replace(second=0, microsecond=0)
     ts, cfg = s["tasks"], s["settings"]
@@ -122,9 +140,7 @@ def plan(s, now):
     for h in s["sessions"]:
         if h["task"] not in ts:
             continue
-        if clock(h["end"]) <= now:
-            event(s,h,now,0,left[h["task"]],"Chưa ghi nhận")
-        elif clock(h["start"]) < now < clock(h["end"]):
+        if clock(h["start"]) < now < clock(h["end"]):
             active=h
     spent, skipped = Counter(), defaultdict(list)
     last_break = datetime.min
@@ -226,13 +242,82 @@ def plan(s, now):
                 last_break=pos
         date_row["scheduled"]=allocated
         week_row["scheduled"]+=allocated
+    baseline_seconds=perf_counter()-started
+    problem=Problem(s,now,order,horizon,windows)
+    if baseline_only:
+        from optimizer import evaluate
+        invalid=problem.validate(sessions)
+        if invalid: raise ValueError(invalid)
+        metrics=evaluate(problem,sessions)[1]
+        optimization=dict(strategy="baseline",evaluated=1,rejected=0,baseline=metrics,selected=metrics,
+                          timeout=False,seconds=baseline_seconds)
+    else:
+        sessions,left,optimization=optimize(problem,sessions,started,seconds)
+        for collection in (dates,weeks):
+            for row in collection.values(): row["scheduled"]=0
+        for row in sessions:
+            day=clock(row["start"]).date()
+            dates[day.isoformat()]["scheduled"]+=row["minutes"]
+            weeks[week(day)]["scheduled"]+=row["minutes"]
+    optimization["baseline_seconds"]=round(baseline_seconds,4)
+    reasons={}
+    impacts={}
+    for k,n in left.items():
+        if not n: continue
+        parents=[d for d in problem.parents[k] if left[d]]
+        bound=problem.upper(max(now,release[k]),due[k])
+        causes=[]
+        if due[k]<=now: causes.append("quá hạn")
+        if due[k].date()>horizon: causes.append("ngoài kỳ lập lịch")
+        if parents:
+            causes.append("vướng tiên quyết: "+", ".join(f"{ts[d]['name']} ({left[d]} phút, hạn {ts[d]['due']})" for d in parents))
+        if due[k]>now and due[k].date()<=horizon and bound<ts[k]["left"]:
+            causes.append(f"thiếu giờ trong cửa sổ cho phép: tối đa {bound} / cần {ts[k]['left']} phút")
+        if not causes: causes.append("chưa xếp hết sau tìm kiếm giới hạn")
+        reasons[k]=causes
+        affected=sorted(d for d in problem.desc[k] if left[d])
+        if affected: impacts[k]=dict(tasks=affected,minutes=sum(left[d] for d in affected))
+    optimization["impacts"]=impacts
+    optimization["blocked_unique"]=sum(n for k,n in left.items() if any(left[d] for d in problem.parents[k]))
+    optimization["direct_minutes"]=sum(left.values())-optimization["blocked_unique"]
+    projected=problem.left.copy()
+    by_day=defaultdict(list)
+    for row in sessions: by_day[row["start"][:10]].append(row)
+    idle=[]
+    for day_key,row in dates.items():
+        for session in by_day[day_key]: projected[session["task"]]-=session["minutes"]
+        spare=row["capacity"]-row["scheduled"]
+        if spare<=0:continue
+        free,nominal=problem.days[date.fromisoformat(day_key)]
+        reasons_idle=Counter()
+        for k,n in projected.items():
+            if not n:continue
+            if due[k].date().isoformat()<day_key: explanation="đã qua hạn"
+            elif release[k].date().isoformat()>day_key: explanation="chưa đến ngày bắt đầu"
+            elif any(projected[d] for d in problem.parents[k]): explanation="chờ tiên quyết"
+            elif not any(max(now,a,release[k])<min(b,due[k]) for a,b in free): explanation="không có khung hợp lệ"
+            else: explanation="cần xét giờ trống, nghỉ và cạnh tranh trong ngày"
+            reasons_idle[explanation]+=1
+        idle.append(dict(day=day_key,unused=spare,nominal=nominal,reasons=dict(reasons_idle)))
+    optimization["idle"]=idle
+    # Test necessary interval bounds around unfinished tasks. Keep the number
+    # of intervals bounded; absence of a certificate is inconclusive.
+    bottlenecks=[]
+    pending=[k for k in order if left[k] and now<due[k] and due[k].date()<=horizon]
+    for end in sorted({due[k] for k in pending})[:8]:
+        starts={max(now,release[k]) for k in order if problem.left[k] and due[k]<=end}
+        for start in sorted(starts,reverse=True)[:16]:
+            group=[k for k in order if max(now,release[k])>=start and due[k]<=end and problem.left[k]]
+            demand=sum(problem.left[k] for k in group)
+            bound=problem.upper(start,end)
+            if demand>bound:
+                bottlenecks.append(dict(start=stamp(start),end=stamp(end),required=demand,upper_bound=bound,
+                                        minimum_shortfall=demand-bound))
+    optimization["bottlenecks"]=sorted(bottlenecks,key=lambda row:-row["minimum_shortfall"])[:5]
     for k,n in left.items():
         if not n: continue
         t=ts[k]
-        causes=[]
-        if due[k]<=now: causes.append("quá hạn")
-        if any(left[d] for d in t["deps"]): causes.append("vướng tiên quyết")
-        if due[k].date()>horizon: causes.append("ngoài kỳ lập lịch")
+        causes=reasons[k]
         if release[k]>now: causes.append("giới hạn ngày bắt đầu")
         for day,(unblocked,free) in blocked_by_events.items():
             lo=max(now,release[k],datetime.combine(day,time.min))
@@ -243,8 +328,6 @@ def plan(s, now):
                 if span(unblocked)>span(free):
                     causes.append("sự kiện cố định giảm giờ rảnh")
                     break
-        if not causes or (due[k]>now and due[k].date()<=horizon and not any(left[d] for d in t["deps"])):
-            causes.append("thiếu giờ khả dụng trước hạn")
         if due[k].date()>horizon:
             suggestion="Kéo dài kỳ lập lịch để xét phần còn lại."
         elif any(left[d] for d in t["deps"]):
@@ -264,13 +347,16 @@ def plan(s, now):
     for d in deadlines:
         if d.date()>horizon: continue
         demand=sum(t["left"] for k,t in ts.items() if due[k]<=d)
-        comparisons.append(dict(due=stamp(d),required=demand,capacity=limits.get(d,0)))
+        upper=problem.upper(now,d)
+        comparisons.append(dict(due=stamp(d),required=demand,capacity=limits.get(d,0),
+                                upper_bound=upper,proven_shortfall=max(0,demand-upper)))
     for d,count in Counter(t["due"][:10] for t in ts.values() if t["left"]).items():
         if count>1: warnings.append(f"{d} · {count} việc cùng ngày đến hạn.")
     total=sum(t["left"] for t in ts.values())
     s["analysis"]=dict(horizon_end=horizon.isoformat(),remaining=total,capacity=cumulative,
                        scheduled=total-sum(left.values()),unscheduled=sum(left.values()),courses=dict(course),
-                       dates=dates,weeks=weeks,deadlines=comparisons,risks=risks)
+                       dates=dates,weeks=weeks,deadlines=comparisons,risks=risks,optimization=optimization,
+                       due_at_plan={k:t["due"] for k,t in ts.items()})
     s["sessions"]=sessions
     return warnings
 
@@ -290,10 +376,10 @@ class Store:
             s = json.loads(db.execute("SELECT body FROM state WHERE id=1").fetchone()[0])
             clock = now or datetime.now()
             old_risks={r["task"]:r["minutes"] for r in s.get("analysis",{}).get("risks",[])}
-            plan(s, clock)
+            settle(s,clock)
             if mutate is not None:
                 mutate(s)
-            alerts = plan(s, clock)
+            alerts = plan(s, clock, settled=True)
             recent=set(s.get("recent_risks",[])) if mutate is None else set()
             s["recent_risks"]=[r["task"] for r in s["analysis"]["risks"]
                               if r["task"] in recent or r["minutes"]>old_risks.get(r["task"],0)]

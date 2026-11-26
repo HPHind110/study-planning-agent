@@ -91,6 +91,25 @@ function matrix(head,rows){
 
 function workload(){
   const a=state.analysis;
+  const opt=a.optimization;
+  let diagnostics='';
+  if(opt && opt.bottlenecks){
+    const base=opt.baseline;
+    diagnostics='<section class="panel"><h2>So sánh cách xếp lịch</h2><p>'+
+      esc(opt.strategy)+' · '+opt.evaluated+' lịch hợp lệ · '+opt.seconds+' giây'+(opt.timeout?' · hết ngân sách tìm kiếm':'')+'</p>'+
+      (base?matrix(['Phút','Lịch gốc','Lịch chọn'],[
+        ['Xếp đúng hạn',a.remaining-base.unscheduled,a.scheduled],['Thiếu hạn cứng',base.hard_minutes,opt.selected.hard_minutes],
+        ['Thiếu có trọng số',base.weighted,opt.selected.weighted],['Bị chặn bởi tiên quyết',base.blocked,opt.blocked_unique]]):
+        '<p>Lịch gốc vi phạm ràng buộc.</p>')+
+      '<p>Thiếu trực tiếp '+mins(opt.direct_minutes)+' · bị chặn '+mins(opt.blocked_unique)+'</p>';
+    if(Object.keys(opt.impacts).length)diagnostics+=matrix(['Tiên quyết','Việc bị ảnh hưởng','Phút bị ảnh hưởng'],
+      Object.entries(opt.impacts).map(([k,v])=>[state.tasks[k].name,v.tasks.map(i=>state.tasks[i].name).join(', '),v.minutes]));
+    if(opt.bottlenecks.length)diagnostics+=matrix(['Từ','Đến','Cần','Tối đa','Ít nhất còn thiếu'],
+      opt.bottlenecks.map(r=>[r.start,r.end,r.required,r.upper_bound,r.minimum_shortfall]));
+    if(opt.idle.length)diagnostics+='<details><summary>Ngày còn giờ trống</summary>'+matrix(['Ngày','Trần còn lại','Phút chưa dùng','Việc còn lại cuối ngày'],
+      opt.idle.map(r=>[r.day,r.nominal,r.unused,Object.entries(r.reasons).map(([why,n])=>why+' ('+n+')').join(', ')||'Đã xếp hết']))+'</details>';
+    diagnostics+='</section>';
+  }
   const groups=(rows,only)=>Object.entries(rows).sort(([x],[y])=>x.localeCompare(y))
     .filter(([,r])=>only?r.required>r.capacity:r.required||r.scheduled||r.capacity)
     .map(([key,r])=>[key,r.required,r.capacity,r.scheduled]);
@@ -102,7 +121,7 @@ function workload(){
       (state.recent_risks?.includes(r.task)?'↑ ':'')+state.tasks[r.task].name,mins(r.minutes),r.causes.join(', '),r.recommendation])):
       empty('Mọi phút còn lại đã có chỗ trong lịch.'))+'</section><section class="panel"><h2>Trước từng hạn</h2>'+
     matrix(['Hạn','Nhu cầu lũy kế','Quỹ phút lũy kế'],a.deadlines.map(d=>[d.due,d.required,d.capacity]))+
-    '</section><section class="panel"><h2>Khối lượng theo tuần</h2>'+matrix(labels,groups(a.weeks,false))+
+    '</section>'+diagnostics+'<section class="panel"><h2>Khối lượng theo tuần</h2>'+matrix(labels,groups(a.weeks,false))+
     '<h3>Tuần dồn hạn</h3>'+matrix(labels,groups(a.weeks,true))+'<h3>Ngày dồn hạn</h3>'+matrix(labels,groups(a.dates,true))+
     '<p class="muted">Nhu cầu tính theo ngày đến hạn. Công việc có thể được xếp trước đó. ↑ đánh dấu rủi ro mới hoặc tăng khi xếp lại.</p></section>';
 }

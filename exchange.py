@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import Field
 from academic import clock
-from planner import plan, validate
+from planner import plan, validate, settle
 from schemas import FixedEvent, Model, Name, Settings, TaskInput, Minutes
 
 
@@ -91,7 +91,7 @@ def prepare(original, request, now):
             if not scope.full_restore: raise ValueError("Cần xác nhận full_restore.")
             s=check_snapshot(request.document)
         else:
-            plan(s,now)
+            settle(s,now)
             pkg=Package.model_validate(request.document)
             if scope.full_restore: raise ValueError("full_restore chỉ dùng khi khôi phục.")
             if request.mode=="replace" and not (scope.courses or scope.event_ids or scope.settings):
@@ -149,7 +149,7 @@ def prepare(original, request, now):
             result[prefix+"updated"]=sorted(k for k in new.keys()&old.keys() if new[k]!=old[k])
         result["settings_changed"]=original["settings"]!=s["settings"]
         result["workload"]=sum(t["estimate"] for t in s["tasks"].values())
-        result["warnings"]=plan(s,now)
+        result["warnings"]=plan(s,now,settled=request.mode!="restore")
         s["warnings"]=result["warnings"]
         previous={r["task"]:r["minutes"] for r in original.get("analysis",{}).get("risks",[])}
         s["recent_risks"]=[r["task"] for r in s["analysis"]["risks"]
