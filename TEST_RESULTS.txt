@@ -1,6 +1,5 @@
 Windows-11-10.0.26300-SP0
 Python 3.13.15 (tags/v3.13.15:4061bc4, Aug  5 2026, 13:05:39) [MSC v.1944 64 bit (AMD64)]
-Clean source tree, isolated SQLite fixtures.
 test_active_session_invalidated_by_event (test_academic.AcademicCalendar.test_active_session_invalidated_by_event) ... ok
 test_fixed_event_partial_block_overlap_and_recurrence_end (test_academic.AcademicCalendar.test_fixed_event_partial_block_overlap_and_recurrence_end) ... ok
 test_future_release_inside_window_and_soft_deadline (test_academic.AcademicCalendar.test_future_release_inside_window_and_soft_deadline) ... ok
@@ -25,6 +24,14 @@ test_local_web_assets (test_api.HTTPWorkflow.test_local_web_assets) ... ok
 test_skip_and_overdue (test_api.HTTPWorkflow.test_skip_and_overdue) ... ok
 test_validation_and_atomicity (test_api.HTTPWorkflow.test_validation_and_atomicity) ... ok
 test_web_crud_and_progress (test_api.HTTPWorkflow.test_web_crud_and_progress) ... ok
+test_deterministic_with_task_and_calendar_edits (test_optimizer.Optimization.test_deterministic_with_task_and_calendar_edits) ... ok
+test_exhaustive_priority_and_hard_protection (test_optimizer.Optimization.test_exhaustive_priority_and_hard_protection) ... ok
+test_fragmentation_tiebreak (test_optimizer.Optimization.test_fragmentation_tiebreak) ... ok
+test_idle_due_to_future_release (test_optimizer.Optimization.test_idle_due_to_future_release) ... ok
+test_preserve_valid_future_and_history (test_optimizer.Optimization.test_preserve_valid_future_and_history) ... ok
+test_shared_descendants_counted_once (test_optimizer.Optimization.test_shared_descendants_counted_once) ... ok
+test_snapshot_active_partial_and_timeout (test_optimizer.Optimization.test_snapshot_active_partial_and_timeout) ... ok
+test_validator_rejects_constraints (test_optimizer.Optimization.test_validator_rejects_constraints) ... ok
 test_atomic_import_and_reopen (test_planner.Scheduling.test_atomic_import_and_reopen) ... ok
 test_cap_break_split (test_planner.Scheduling.test_cap_break_split) ... ok
 test_constraints_and_shortfall (test_planner.Scheduling.test_constraints_and_shortfall) ... ok
@@ -40,6 +47,6 @@ test_priority_tie (test_planner.Scheduling.test_priority_tie) ... ok
 test_skip_future (test_planner.Scheduling.test_skip_future) ... ok
 
 ----------------------------------------------------------------------
-Ran 37 tests in 5.336s
+Ran 45 tests in 5.751s
 
 OK

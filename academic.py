@@ -1,4 +1,5 @@
 """Academic calendar constraints. All intervals are half-open, in local wall time."""
+from functools import lru_cache
 from datetime import date, datetime, timedelta
 
 MIN = timedelta(minutes=1)
@@ -11,6 +12,7 @@ def day_value(value):
     return day
 
 
+@lru_cache(maxsize=8192)
 def clock(value):
     dt = datetime.strptime(value, "%Y-%m-%d %H:%M")
     if dt.isoformat(sep=" ", timespec="minutes") != value:
